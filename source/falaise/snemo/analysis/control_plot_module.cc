@@ -36,6 +36,7 @@
 #include <falaise/snemo/datamodels/particle_track_data.h>
 
 #include <falaise/snemo/datamodels/topology_data.h>
+#include <falaise/snemo/datamodels/topology_2e_pattern.h>
 
 namespace analysis {
 
@@ -168,7 +169,6 @@ namespace analysis {
     //   return status;
     // }
 
-
     // Check if some 'topology_data' are available in the data model:
     const std::string td_label = snemo::datamodel::data_info::default_topology_data_label();
     if (! data_record_.has(td_label)) {
@@ -180,48 +180,241 @@ namespace analysis {
     const snemo::datamodel::topology_data & td
       = data_record_.get<snemo::datamodel::topology_data>(td_label);
 
-    // DT_LOG_DEBUG(get_logging_priority(), "Topology data : ");
-    // if (get_logging_priority() >= datatools::logger::PRIO_DEBUG) td.tree_dump();
+    DT_LOG_DEBUG(get_logging_priority(), "Topology data : ");
+    if (get_logging_priority() >= datatools::logger::PRIO_DEBUG) td.tree_dump();
 
-    // const snemo::datamodel::base_topology_pattern & a_pattern = TD.get_pattern();
-    // const std::string & a_pattern_id = a_pattern.get_pattern_id();
+    const snemo::datamodel::base_topology_pattern & a_pattern = td.get_pattern();
+    const std::string & a_pattern_id = a_pattern.get_pattern_id();
 
-    // if (a_pattern_id != "2e") {
-    //   DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '2e' topology for now !");
-    //   return dpp::base_module::PROCESS_ERROR;
-    // }
+    if (a_pattern_id != "2e") {
+      DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '2e' topology for now !");
+      return dpp::base_module::PROCESS_ERROR;
+    }
 
-    // double proba_int;
-    // const snemo::datamodel::topology_2e_pattern * ptr_2e_pattern
-    //   = dynamic_cast<const snemo::datamodel::topology_2e_pattern *>(&a_pattern);
-    // if (ptr_2e_pattern->has_internal_probability()) {
-    //   proba_int = ptr_2e_pattern->get_internal_probability();
-    // }
+    const snemo::datamodel::topology_2e_pattern * ptr_2e_pattern
+      = dynamic_cast<const snemo::datamodel::topology_2e_pattern *>(&a_pattern);
 
-    // std::cout << "debug proba int : " << proba_int << std::endl;
+    double proba_int;
+    if (ptr_2e_pattern->has_internal_probability()) {
+      proba_int = ptr_2e_pattern->get_internal_probability();
+    }
+
+    double proba_ext;
+    if (ptr_2e_pattern->has_external_probability()) {
+      proba_ext = ptr_2e_pattern->get_external_probability();
+    }
+
+    double delta_y;
+    if (ptr_2e_pattern->has_delta_vertices_y()) {
+      delta_y = ptr_2e_pattern->get_delta_vertices_y();
+    }
+
+    double delta_z;
+    if (ptr_2e_pattern->has_delta_vertices_z()) {
+      delta_z = ptr_2e_pattern->get_delta_vertices_z();
+    }
+
+    double angle;
+    if (ptr_2e_pattern->has_angle()) {
+    }
+    angle = ptr_2e_pattern->get_angle();
+    // std::cout << "Angle : " << angle << std::endl;
+
+    std::ostringstream key_pint;
+    key_pint << "Internal TOF probability";
+
+    // Getting histogram pool
+    mygsl::histogram_pool & a_pool = grab_histogram_pool();
+
+    if (! a_pool.has(key_pint.str()))
+      {
+        mygsl::histogram_1d & h = a_pool.add_1d(key_pint.str(), "", "tof_probability");
+        datatools::properties hconfig;
+        hconfig.store_string("mode", "mimic");
+        hconfig.store_string("mimic.histogram_1d", "tof_probability_template");
+        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+      }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_pint = a_pool.grab_1d(key_pint.str ());
+
+    a_histo_pint.fill(proba_int);
+
+    std::ostringstream key_pext;
+    key_pext << "External TOF probability";
+
+    if (! a_pool.has(key_pext.str()))
+      {
+        mygsl::histogram_1d & h = a_pool.add_1d(key_pext.str(), "", "tof_probability");
+        datatools::properties hconfig;
+        hconfig.store_string("mode", "mimic");
+        hconfig.store_string("mimic.histogram_1d", "tof_probability_template");
+        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+      }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_pext = a_pool.grab_1d(key_pext.str ());
+
+    a_histo_pext.fill(proba_ext);
+
+    std::ostringstream key_deltay;
+    key_deltay << "#Delta_{y} vertices";
+
+    if (! a_pool.has(key_deltay.str()))
+      {
+        mygsl::histogram_1d & h = a_pool.add_1d(key_deltay.str(), "", "delta_y");
+        datatools::properties hconfig;
+        hconfig.store_string("mode", "mimic");
+        hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+      }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_deltay = a_pool.grab_1d(key_deltay.str ());
+
+    a_histo_deltay.fill(delta_y);
+
+    std::ostringstream key_deltaz;
+    key_deltaz << "#Delta_{z} vertices";
+
+    if (! a_pool.has(key_deltaz.str()))
+      {
+        mygsl::histogram_1d & h = a_pool.add_1d(key_deltaz.str(), "", "delta_z");
+        datatools::properties hconfig;
+        hconfig.store_string("mode", "mimic");
+        hconfig.store_string("mimic.histogram_1d", "delta_vertices_Z_template");
+        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+      }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_deltaz = a_pool.grab_1d(key_deltaz.str ());
+
+    a_histo_deltaz.fill(delta_z);
+
+    std::ostringstream key_angle;
+    key_angle << "Cos(#theta)";
+
+    if (! a_pool.has(key_angle.str()))
+      {
+        mygsl::histogram_1d & h = a_pool.add_1d(key_angle.str(), "", "cos_angle");
+        datatools::properties hconfig;
+        hconfig.store_string("mode", "mimic");
+        hconfig.store_string("mimic.histogram_1d", "cos_angle_template");
+        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+      }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_angle = a_pool.grab_1d(key_angle.str ());
+
+    a_histo_angle.fill(cos(angle));
+
+//-----Energy plots
+
+// Check if the 'particle track' record bank is available :
+    const std::string ptd_label = snemo::datamodel::data_info::default_particle_track_data_label();
+    if (! data_record_.has(ptd_label))
+      {
+        DT_LOG_ERROR(get_logging_priority (), "Could not find any bank with label '"
+                     << ptd_label << "' !");
+        return dpp::base_module::PROCESS_STOP;
+      }
+    const snemo::datamodel::particle_track_data & ptd
+      = data_record_.get<snemo::datamodel::particle_track_data>(ptd_label);
+
+    const snemo::datamodel::particle_track_data::particle_collection_type & the_particles = ptd.get_particles();
+
+//Under the 2e hypothesis
+         const snemo::datamodel::particle_track electron_1 = the_particles.at(0).get();
+         const snemo::datamodel::particle_track electron_2 = the_particles.at(1).get();
+
+        const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
+          the_calorimeters_1 = electron_1.get_associated_calorimeter_hits ();
+
+        const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
+          the_calorimeters_2 = electron_2.get_associated_calorimeter_hits ();
+
+        if (the_calorimeters_1.size() > 1 || the_calorimeters_2.size() > 1)
+          {
+            DT_LOG_WARNING(get_logging_priority(),
+                         "A particle is associated to more than 1 calorimeter !");
+          }
+
+ double energy_1 = the_calorimeters_1.at(0).get().get_energy();
+ double energy_2 = the_calorimeters_2.at(0).get().get_energy();
+
+// std::cout << "E1 " << energy_1 <<  std::endl;
+// std::cout << "E2 " << energy_2 <<  std::endl;
+
+ std::ostringstream key_Etot;
+ key_Etot << "Etot";
+
+ if (! a_pool.has(key_Etot.str()))
+      {
+    mygsl::histogram_1d & h = a_pool.add_1d(key_Etot.str(), "", "Etot");
+    datatools::properties hconfig;
+    hconfig.store_string("mode", "mimic");
+    hconfig.store_string("mimic.histogram_1d", "energy_template");
+    mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+  }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_Etot = a_pool.grab_1d(key_Etot.str ());
+
+    a_histo_Etot.fill(energy_1 + energy_2);
+
+    std::ostringstream key_Emin;
+    key_Emin << "Emin";
+
+    if (! a_pool.has(key_Emin.str()))
+      {
+    mygsl::histogram_1d & h = a_pool.add_1d(key_Emin.str(), "", "Emin");
+    datatools::properties hconfig;
+    hconfig.store_string("mode", "mimic");
+    hconfig.store_string("mimic.histogram_1d", "energy_template");
+    mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+  }
+
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_Emin = a_pool.grab_1d(key_Emin.str ());
+
+    a_histo_Emin.fill(std::min(energy_1,energy_2));
 
 
-    // std::ostringstream key;
-    // key << "tof";
+    std::ostringstream key_Emax;
+    key_Emax << "Emax";
 
-    // // Getting histogram pool
-    // mygsl::histogram_pool & a_pool = grab_histogram_pool();
+    if (! a_pool.has(key_Emax.str()))
+      {
+    mygsl::histogram_1d & h = a_pool.add_1d(key_Emax.str(), "", "Emax");
+    datatools::properties hconfig;
+    hconfig.store_string("mode", "mimic");
+    hconfig.store_string("mimic.histogram_1d", "energy_template");
+    mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+  }
 
-    // if (! a_pool.has(key.str()))
-    //   {
-    //     mygsl::histogram_1d & h = a_pool.add_1d(key.str(), "", "tof_probability");
-    //     datatools::properties hconfig;
-    //     hconfig.store_string("mode", "mimic");
-    //     hconfig.store_string("mimic.histogram_1d", "tof_probability_template");
-    //     mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
-    //   }
+    // Getting the current histogram
+    mygsl::histogram_1d & a_histo_Emax = a_pool.grab_1d(key_Emax.str ());
 
-    // // Getting the current histogram
-    // mygsl::histogram_1d & a_histo = a_pool.grab_1d(key.str ());
+    a_histo_Emax.fill(std::max(energy_1,energy_2));
 
-    // a_histo.fill(proba_int);
+    std::ostringstream key_EminEmax;
+    key_EminEmax << "EminEmax";
 
-    // DT_LOG_TRACE(get_logging_priority(), "Exiting.");
+    if (! a_pool.has(key_EminEmax.str()))
+      {
+    mygsl::histogram_2d & h = a_pool.add_2d(key_EminEmax.str(), "", "EminEmax");
+    datatools::properties hconfig;
+    hconfig.store_string("mode", "mimic");
+    hconfig.store_string("mimic.histogram_2d", "Emin_Emax_template");
+    mygsl::histogram_pool::init_histo_2d(h, hconfig, &a_pool);
+  }
+
+    // Getting the current histogram
+    mygsl::histogram_2d & a_histo_EminEmax = a_pool.grab_2d(key_EminEmax.str ());
+
+    a_histo_EminEmax.fill(std::min(energy_1,energy_2), std::max(energy_1,energy_2));
+
+    DT_LOG_TRACE(get_logging_priority(), "Exiting.");
     return dpp::base_module::PROCESS_SUCCESS;
   }
 
