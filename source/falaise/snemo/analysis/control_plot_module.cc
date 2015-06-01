@@ -37,6 +37,7 @@
 
 #include <falaise/snemo/datamodels/topology_data.h>
 #include <falaise/snemo/datamodels/topology_2e_pattern.h>
+#include <falaise/snemo/datamodels/topology_1eNg_pattern.h>
 
 namespace analysis {
 
@@ -81,7 +82,6 @@ namespace analysis {
                 "Module '" << get_name() << "' is already initialized ! ");
 
     dpp::base_module::_common_initialize(config_);
-
 
     // Service label
     std::string histogram_label;
@@ -163,12 +163,6 @@ namespace analysis {
     DT_THROW_IF(! is_initialized(), std::logic_error,
                 "Module '" << get_name() << "' is not initialized !");
 
-    // const process_status status = _compute_gamma_track_length(data_record_);
-    // if (status != dpp::base_module::PROCESS_OK) {
-    //   DT_LOG_ERROR(get_logging_priority(), "Computing the gamma track length fails !");
-    //   return status;
-    // }
-
     // Check if some 'topology_data' are available in the data model:
     const std::string td_label = snemo::datamodel::data_info::default_topology_data_label();
     if (! data_record_.has(td_label)) {
@@ -176,21 +170,231 @@ namespace analysis {
       return dpp::base_module::PROCESS_ERROR;
     }
 
-  // Get the 'topology_data' entry from the data model :
+    // Get the 'topology_data' entry from the data model :
     const snemo::datamodel::topology_data & td
       = data_record_.get<snemo::datamodel::topology_data>(td_label);
 
     DT_LOG_DEBUG(get_logging_priority(), "Topology data : ");
     if (get_logging_priority() >= datatools::logger::PRIO_DEBUG) td.tree_dump();
 
-    const snemo::datamodel::base_topology_pattern & a_pattern = td.get_pattern();
-    const std::string & a_pattern_id = a_pattern.get_pattern_id();
-
-    if (a_pattern_id != "2e") {
-      DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '2e' topology for now !");
+    if (! td.has_pattern()) {
+      DT_LOG_ERROR(get_logging_priority(), "Missing pattern !");
       return dpp::base_module::PROCESS_ERROR;
     }
+    const snemo::datamodel::base_topology_pattern & a_pattern = td.get_pattern();
 
+    const std::string & a_pattern_id = a_pattern.get_pattern_id();
+
+    // if (a_pattern_id != "2e") {
+    //   DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '2e' topology for now !");
+    //   return dpp::base_module::PROCESS_ERROR;
+    // }
+
+    // if (a_pattern_id != "1eNg") {
+    //   DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '2e' topology for now !");
+    //   return dpp::base_module::PROCESS_SUCCESS;
+    // }
+
+    if (a_pattern_id == "1eNg") {
+      const snemo::datamodel::topology_1eNg_pattern * ptr_1eNg_pattern
+        = dynamic_cast<const snemo::datamodel::topology_1eNg_pattern *>(&a_pattern);
+
+      const int ngammas = ptr_1eNg_pattern->get_number_of_gammas();
+
+      if(ngammas >3) {
+        DT_LOG_ERROR(get_logging_priority(), "PlotModule only works for '1eNg' topology  with up to 3 gamams for now !");
+        return dpp::base_module::PROCESS_ERROR;
+      }
+
+      if(ngammas == 1) {
+        std::ostringstream key;
+        key << "1e" << ngammas << "g";
+
+        std::ostringstream key_electron_energy;
+        key_electron_energy << "1e1g" << "_electron_energy";
+
+        // Getting histogram pool
+        mygsl::histogram_pool & a_pool = grab_histogram_pool();
+
+        if (! a_pool.has(key_electron_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_electron_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_electron_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_electron_energy = a_pool.grab_1d(key_electron_energy.str ());
+          a_histo_electron_energy.fill(ptr_1eNg_pattern->get_electron_energy());
+        }
+
+        std::ostringstream key_gamma_energy;
+        key_gamma_energy << "1e1g"<< "_gamma_energy";
+
+        if (! a_pool.has(key_gamma_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_max_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_energy = a_pool.grab_1d(key_gamma_energy.str ());
+          a_histo_gamma_energy.fill(ptr_1eNg_pattern->get_gamma_max_energy());
+        }
+
+      }
+
+      if(ngammas == 3) {
+        std::ostringstream key;
+        key << "1e" << ngammas << "g";
+
+        std::ostringstream key_electron_energy;
+        key_electron_energy  << "1e3g" << "_electron_energy";
+
+        // Getting histogram pool
+        mygsl::histogram_pool & a_pool = grab_histogram_pool();
+
+        if (! a_pool.has(key_electron_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_electron_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_electron_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_electron_energy = a_pool.grab_1d(key_electron_energy.str ());
+          a_histo_electron_energy.fill(ptr_1eNg_pattern->get_electron_energy());
+        }
+
+        std::ostringstream key_gamma_max_energy;
+        key_gamma_max_energy  << "1e3g" << "_gamma_max_energy";
+
+        if (! a_pool.has(key_gamma_max_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_max_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_max_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_max_energy = a_pool.grab_1d(key_gamma_max_energy.str ());
+          a_histo_gamma_max_energy.fill(ptr_1eNg_pattern->get_gamma_max_energy());
+        }
+
+        std::ostringstream key_gamma_mid_energy;
+        key_gamma_mid_energy  << "1e3g" << "_gamma_mid_energy";
+
+        if (! a_pool.has(key_gamma_mid_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_mid_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_mid_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_mid_energy = a_pool.grab_1d(key_gamma_mid_energy.str ());
+          a_histo_gamma_mid_energy.fill(ptr_1eNg_pattern->get_gamma_mid_energy());
+        }
+
+        std::ostringstream key_gamma_min_energy;
+        key_gamma_min_energy  << "1e3g" << "_gamma_min_energy";
+
+        if (! a_pool.has(key_gamma_min_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_min_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_min_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_min_energy = a_pool.grab_1d(key_gamma_min_energy.str ());
+          a_histo_gamma_min_energy.fill(ptr_1eNg_pattern->get_gamma_min_energy());
+        }
+      }
+      if(ngammas == 2) {
+        std::ostringstream key;
+        key << "1e" << ngammas << "g";
+
+        std::ostringstream key_electron_energy;
+        key_electron_energy  << "1e2g" << "_electron_energy";
+
+        // Getting histogram pool
+        mygsl::histogram_pool & a_pool = grab_histogram_pool();
+
+        if (! a_pool.has(key_electron_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_electron_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_electron_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_electron_energy = a_pool.grab_1d(key_electron_energy.str ());
+          a_histo_electron_energy.fill(ptr_1eNg_pattern->get_electron_energy());
+        }
+
+        std::ostringstream key_gamma_max_energy;
+        key_gamma_max_energy  << "1e2g" << "_gamma_max_energy";
+
+        if (! a_pool.has(key_gamma_max_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_max_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_max_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_max_energy = a_pool.grab_1d(key_gamma_max_energy.str ());
+          a_histo_gamma_max_energy.fill(ptr_1eNg_pattern->get_gamma_max_energy());
+        }
+
+        std::ostringstream key_gamma_min_energy;
+        key_gamma_min_energy  << "1e2g" << "_gamma_min_energy";
+
+        if (! a_pool.has(key_gamma_min_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_gamma_min_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_gamma_min_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_gamma_min_energy = a_pool.grab_1d(key_gamma_min_energy.str ());
+          a_histo_gamma_min_energy.fill(ptr_1eNg_pattern->get_gamma_min_energy());
+        }
+
+      }
+    }
+
+    /* // 2e fill
     const snemo::datamodel::topology_2e_pattern * ptr_2e_pattern
       = dynamic_cast<const snemo::datamodel::topology_2e_pattern *>(&a_pattern);
 
@@ -292,7 +496,7 @@ namespace analysis {
     a_histo_deltaz.fill(delta_z);
 
     std::ostringstream key_angle;
-    key_angle << "Cos(#theta)";
+    key_angle << "Cos(angle)";
 
     if (! a_pool.has(key_angle.str()))
       {
@@ -308,9 +512,9 @@ namespace analysis {
 
     a_histo_angle.fill(cos(angle));
 
-//-----Energy plots
+    //-----Energy plots
 
-// Check if the 'particle track' record bank is available :
+    // Check if the 'particle track' record bank is available :
     const std::string ptd_label = snemo::datamodel::data_info::default_particle_track_data_label();
     if (! data_record_.has(ptd_label))
       {
@@ -323,27 +527,27 @@ namespace analysis {
 
     const snemo::datamodel::particle_track_data::particle_collection_type & the_particles = ptd.get_particles();
 
-//Under the 2e hypothesis
-         const snemo::datamodel::particle_track electron_1 = the_particles.at(0).get();
-         const snemo::datamodel::particle_track electron_2 = the_particles.at(1).get();
+    // Under the 2e hypothesis
+    const snemo::datamodel::particle_track electron_1 = the_particles.at(0).get();
+    const snemo::datamodel::particle_track electron_2 = the_particles.at(1).get();
 
-        const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
-          the_calorimeters_1 = electron_1.get_associated_calorimeter_hits ();
+    const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
+      the_calorimeters_1 = electron_1.get_associated_calorimeter_hits ();
 
-        const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
-          the_calorimeters_2 = electron_2.get_associated_calorimeter_hits ();
+    const snemo::datamodel::calibrated_calorimeter_hit::collection_type &
+      the_calorimeters_2 = electron_2.get_associated_calorimeter_hits ();
 
-        if (the_calorimeters_1.size() > 1 || the_calorimeters_2.size() > 1)
-          {
-            DT_LOG_WARNING(get_logging_priority(),
-                         "A particle is associated to more than 1 calorimeter !");
-          }
+    if (the_calorimeters_1.size() > 1 || the_calorimeters_2.size() > 1)
+      {
+        DT_LOG_WARNING(get_logging_priority(),
+                       "A particle is associated to more than 1 calorimeter !");
+      }
 
- double energy_1 = the_calorimeters_1.at(0).get().get_energy();
- double energy_2 = the_calorimeters_2.at(0).get().get_energy();
+    double energy_1 = the_calorimeters_1.at(0).get().get_energy();
+    double energy_2 = the_calorimeters_2.at(0).get().get_energy();
 
-// std::cout << "E1 " << energy_1 <<  std::endl;
-// std::cout << "E2 " << energy_2 <<  std::endl;
+    // std::cout << "E1 " << energy_1 <<  std::endl;
+    // std::cout << "E2 " << energy_2 <<  std::endl;
 
  std::ostringstream key_Etot;
  key_Etot << "Etot";
@@ -413,6 +617,7 @@ namespace analysis {
     mygsl::histogram_2d & a_histo_EminEmax = a_pool.grab_2d(key_EminEmax.str ());
 
     a_histo_EminEmax.fill(std::min(energy_1,energy_2), std::max(energy_1,energy_2));
+    */
 
     DT_LOG_TRACE(get_logging_priority(), "Exiting.");
     return dpp::base_module::PROCESS_SUCCESS;
