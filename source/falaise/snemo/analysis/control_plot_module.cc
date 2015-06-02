@@ -178,7 +178,7 @@ namespace analysis {
     if (get_logging_priority() >= datatools::logger::PRIO_DEBUG) td.tree_dump();
 
     if (! td.has_pattern()) {
-      DT_LOG_ERROR(get_logging_priority(), "Missing pattern !");
+      // DT_LOG_ERROR(get_logging_priority(), "Missing pattern !");
       return dpp::base_module::PROCESS_ERROR;
     }
     const snemo::datamodel::base_topology_pattern & a_pattern = td.get_pattern();
@@ -202,7 +202,7 @@ namespace analysis {
       const int ngammas = ptr_1eNg_pattern->get_number_of_gammas();
 
       if(ngammas >3) {
-        DT_LOG_ERROR(get_logging_priority(), "PlotModule only works for '1eNg' topology  with up to 3 gamams for now !");
+        DT_LOG_ERROR(get_logging_priority(), "PlotModule only works for '1eNg' topology  with up to 3 gammas for now !");
         return dpp::base_module::PROCESS_ERROR;
       }
 
@@ -232,7 +232,7 @@ namespace analysis {
         }
 
         std::ostringstream key_gamma_energy;
-        key_gamma_energy << "1e1g"<< "_gamma_energy";
+        key_gamma_energy << "1e1g"<< "_gamma_max_energy";
 
         if (! a_pool.has(key_gamma_energy.str()))
           {
@@ -249,6 +249,24 @@ namespace analysis {
           a_histo_gamma_energy.fill(ptr_1eNg_pattern->get_gamma_max_energy());
         }
 
+        std::ostringstream key_tot_energy;
+        key_tot_energy << "1e1g"<< "_tot_energy";
+
+        if (! a_pool.has(key_tot_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_tot_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_total_energy()) {
+          // std::cout << "DEBUG has total energy " << ptr_1eNg_pattern->get_total_energy() << std::endl;
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_tot_energy = a_pool.grab_1d(key_tot_energy.str ());
+          a_histo_tot_energy.fill(ptr_1eNg_pattern->get_total_energy());
+        }
       }
 
       if(ngammas == 3) {
@@ -329,6 +347,25 @@ namespace analysis {
           mygsl::histogram_1d & a_histo_gamma_min_energy = a_pool.grab_1d(key_gamma_min_energy.str ());
           a_histo_gamma_min_energy.fill(ptr_1eNg_pattern->get_gamma_min_energy());
         }
+
+         std::ostringstream key_tot_energy;
+        key_tot_energy << "1e3g"<< "_tot_energy";
+
+        if (! a_pool.has(key_tot_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_tot_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_total_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_tot_energy = a_pool.grab_1d(key_tot_energy.str ());
+          a_histo_tot_energy.fill(ptr_1eNg_pattern->get_total_energy());
+        }
+
       }
       if(ngammas == 2) {
         std::ostringstream key;
@@ -389,6 +426,24 @@ namespace analysis {
           // Getting the current histogram
           mygsl::histogram_1d & a_histo_gamma_min_energy = a_pool.grab_1d(key_gamma_min_energy.str ());
           a_histo_gamma_min_energy.fill(ptr_1eNg_pattern->get_gamma_min_energy());
+        }
+
+        std::ostringstream key_tot_energy;
+        key_tot_energy << "1e2g"<< "_tot_energy";
+
+        if (! a_pool.has(key_tot_energy.str()))
+          {
+            mygsl::histogram_1d & h = a_pool.add_1d(key_tot_energy.str(), "", "energy");
+            datatools::properties hconfig;
+            hconfig.store_string("mode", "mimic");
+            hconfig.store_string("mimic.histogram_1d", "energy_template");
+            mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+          }
+
+        if(ptr_1eNg_pattern->has_total_energy()) {
+          // Getting the current histogram
+          mygsl::histogram_1d & a_histo_tot_energy = a_pool.grab_1d(key_tot_energy.str ());
+          a_histo_tot_energy.fill(ptr_1eNg_pattern->get_total_energy());
         }
 
       }
