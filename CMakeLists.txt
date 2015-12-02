@@ -24,11 +24,15 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/source/falaise)
 # - Headers:
 list(APPEND FalaisePlotModulePlugin_HEADERS
   source/falaise/snemo/analysis/control_plot_module.h
+  source/falaise/snemo/analysis/vertices_plot_module.h
+  source/falaise/snemo/analysis/halflife_limit_module.h
   )
 
 # - Sources:
 list(APPEND FalaisePlotModulePlugin_SOURCES
   source/falaise/snemo/analysis/control_plot_module.cc
+  source/falaise/snemo/analysis/vertices_plot_module.cc
+  source/falaise/snemo/analysis/halflife_limit_module.cc
   )
 
 ###########################################################################################
