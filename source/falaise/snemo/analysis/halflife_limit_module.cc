@@ -59,7 +59,6 @@ namespace analysis {
 
   void halflife_limit_module::experiment_entry_type::initialize(const datatools::properties & config_)
   {
-    std::cout<<"---DEBUG exp init---"<<std::endl;
     // Get experimental conditions
     if (config_.has_key("isotope_mass_number"))
       {
@@ -100,10 +99,8 @@ namespace analysis {
             DT_LOG_NOTICE(datatools::logger::PRIO_NOTICE,
                           "Adding '" << bkgname << "' background with an activity of "
                           << background_activities[bkgname]/CLHEP::becquerel*CLHEP::kg << " Bq/kg");
-            // std::cout<<"---DEBUG A---"<<std::endl;
           }
       }
-    std::cout<<"---DEBUG end exp init---"<<std::endl;
     return;
   }
 
@@ -115,7 +112,6 @@ namespace analysis {
   const std::string & halflife_limit_module::signal_flag()
   {
     static const std::string flag("__signal");
-    // std::cout<<"---DEBUG A---"<<std::endl;
     return flag;
   }
 
@@ -123,14 +119,12 @@ namespace analysis {
   const std::string & halflife_limit_module::background_flag()
   {
     static const std::string flag("__background");
-    // std::cout<<"---DEBUG A---"<<std::endl;
     return flag;
   }
 
   // Set the histogram pool used by the module :
   void halflife_limit_module::set_histogram_pool(mygsl::histogram_pool & pool_)
   {
-    // std::cout<<"---DEBUG set pool---"<<std::endl;
     DT_THROW_IF(is_initialized(), std::logic_error,
                 "Module '" << get_name() << "' is already initialized !");
     _histogram_pool_ = &pool_;
@@ -140,7 +134,6 @@ namespace analysis {
   // Grab the histogram pool used by the module :
   mygsl::histogram_pool & halflife_limit_module::grab_histogram_pool()
   {
-    // std::cout<<"---DEBUG grab pool---"<<std::endl;
     DT_THROW_IF(! is_initialized(), std::logic_error,
                 "Module '" << get_name() << "' is not initialized !");
     return *_histogram_pool_;
@@ -159,7 +152,6 @@ namespace analysis {
                                                      datatools::service_manager   & service_manager_,
                                                      dpp::module_handle_dict_type & module_dict_)
   {
-    std::cout<<"---DEBUG Initialize histo---"<<std::endl;
     DT_THROW_IF(is_initialized(),
                 std::logic_error,
                 "Module '" << get_name() << "' is already initialized ! ");
@@ -218,14 +210,12 @@ namespace analysis {
       }
     // Tag the module as initialized :
     _set_initialized(true);
-     std::cout<<"---DEBUG end init histo---"<<std::endl;
     return;
   }
 
   // Reset :
   void halflife_limit_module::reset()
   {
-     std::cout<<"---DEBUG reset---"<<std::endl;
     DT_THROW_IF(! is_initialized(),
                 std::logic_error,
                 "Module '" << get_name() << "' is not initialized !");
@@ -246,7 +236,6 @@ namespace analysis {
     // Tag the module as un-initialized :
     _set_initialized(false);
     _set_defaults();
-    std::cout<<"---DEBUG end reset---"<<std::endl;
     return;
   }
 
@@ -255,26 +244,19 @@ namespace analysis {
     : dpp::base_module(logging_priority_)
   {
     _set_defaults();
-    std::cout<<"---DEBUG constructor---"<<std::endl;
     return;
   }
 
   // Destructor :
   halflife_limit_module::~halflife_limit_module()
   {
-    std::cout<<"---DEBUG destructor---"<<std::endl;
-    if (is_initialized())
-      std::cout<<"---DEBUG  if destructor---"<<std::endl;
     if (is_initialized()) halflife_limit_module::reset();
-    std::cout<<"---DEBUG end destructor---"<<std::endl;
     return;
   }
 
   // Processing :
   dpp::base_module::process_status halflife_limit_module::process(datatools::things & data_record_)
   {
-    std::cout<<"---DEBUG process---"<<std::endl;
-
     DT_THROW_IF(! is_initialized(), std::logic_error,
                 "Module '" << get_name() << "' is not initialized !");
 
@@ -300,7 +282,6 @@ namespace analysis {
       }
     const snemo::datamodel::particle_track_data & ptd
       = data_record_.get<snemo::datamodel::particle_track_data>(ptd_label);
-    std::cout<<"---DEBUG got ptd---"<<std::endl;
 
     if (get_logging_priority() >= datatools::logger::PRIO_DEBUG)
       {
@@ -325,19 +306,13 @@ namespace analysis {
     // Store geom_id to avoid double inclusion of energy deposited
     std::set<geomtools::geom_id> gids;
 
-    std::cout<<"---DEBUG getting unassociated---"<<std::endl;
-
     /* for Gui*/
     const size_t n_calos_non_associated = ptd.get_non_associated_calorimeters().size();
-    std::cout<<"---DEBUG size unasso--- "<< n_calos_non_associated<<std::endl;
 
-    // if(n_calos_non_associated != 1)
-    //   return dpp::base_module::PROCESS_CONTINUE;
+    if(n_calos_non_associated != 0)
+      return dpp::base_module::PROCESS_CONTINUE;
 
-     gamma_energy = ptd.get_non_associated_calorimeters().at(0).get().get_energy();
-
-     // std::cout<<"---DEBUG got unassociated---"<<std::endl;
-
+     // gamma_energy = ptd.get_non_associated_calorimeters().at(0).get().get_energy();
 
     // Loop over all saved particles
     const snemo::datamodel::particle_track_data::particle_collection_type & the_particles = ptd.get_particles();
@@ -390,8 +365,8 @@ namespace analysis {
         else nundefined++;
 
       }
-    if(nelectron == 1)
-      electron_energy = total_energy;
+    // if(nelectron == 1)
+      // electron_energy = total_energy;
 
     // Build unique key for histogram map:
     std::ostringstream key;
@@ -405,9 +380,9 @@ namespace analysis {
         const std::string & a_field = *ifield;
         if (! eh_properties.has_key(a_field))
           {
-            // DT_LOG_WARNING(get_logging_priority(),
-            //                "No properties with key '" << a_field << "' "
-            //                << "has been found in event header !");
+            DT_LOG_WARNING(get_logging_priority(),
+                           "No properties with key '" << a_field << "' "
+                           << "has been found in event header !");
             continue;
           }
 
@@ -431,7 +406,7 @@ namespace analysis {
     // Add charge multiplicity
     key << nelectron << "e-" << npositron << "e+" << nundefined << "u";
 
-    std::cout<< nelectron << "e-" << npositron << "e+" << nundefined << "u"<<std::endl;
+    // std::cout<< nelectron << "e-" << npositron << "e+" << nundefined << "u"<<std::endl;
 
     DT_LOG_TRACE(get_logging_priority(), "Total energy = " << total_energy / CLHEP::keV << " keV");
     DT_LOG_TRACE(get_logging_priority(), "Number of electrons = " << nelectron);
@@ -456,10 +431,8 @@ namespace analysis {
 
     // Getting histogram pool
     mygsl::histogram_pool & a_pool = grab_histogram_pool();
-    // std::cout<<"---DEBUG pool grabbed energy---"<<std::endl;
     if (! a_pool.has(key.str()))
       {
-        // std::cout<<"---DEBUG init energy histo---"<<std::endl;
         mygsl::histogram_1d & h = a_pool.add_1d(key.str(), "", "energy");
         datatools::properties hconfig;
         hconfig.store_string("mode", "mimic");
@@ -470,9 +443,8 @@ namespace analysis {
     // Getting the current histogram
     mygsl::histogram_1d & a_histo = a_pool.grab_1d(key.str ());
     a_histo.fill(total_energy);
-    // a_histo.fill(electron_energy + gamma_energy);
 
-    // std::cout<<"---DEBUG filled histo---"<<std::endl;
+    // a_histo.fill(electron_energy + gamma_energy);
 
     // Compute normalization factor given the total number of events generated
     // and the weight of each event
@@ -480,27 +452,23 @@ namespace analysis {
     // if (eh_properties.has_key("analysis.total_number_of_event"))
     //   {
     //     weight /= eh_properties.fetch_real("analysis.total_number_of_event");
-    //     //std::cout<<"weight "<<weight<<std::endl;
     //   }
     // if (eh_properties.has_key(mctools::event_utils::EVENT_GENBB_WEIGHT))
     //   {
     //     weight *= eh_properties.fetch_real(mctools::event_utils::EVENT_GENBB_WEIGHT);
     //   }
-    // std::cout<<"---DEBUG got weight---"<<std::endl;
 
     // Store the weight into histogram properties
     if (! a_histo.get_auxiliaries().has_key("weight"))
       {
         a_histo.grab_auxiliaries().update("weight", weight);
       }
-    std::cout<<"---DEBUG end process---"<<std::endl;
 
     return dpp::base_module::PROCESS_SUCCESS;
   }
 
   void halflife_limit_module::_compute_efficiency()
   {
-    // std::cout<<"---DEBUG efficiency---"<<std::endl;
     // Getting histogram pool
     mygsl::histogram_pool & a_pool = grab_histogram_pool();
 
@@ -586,8 +554,6 @@ namespace analysis {
 
   void halflife_limit_module::_compute_halflife()
   {
-    // std::cout<<"---DEBUG halflife---"<<std::endl;
-
     // Get SuperNEMO experiment setup
     // Calculate signal to halflife limit constant
     const double exposure_time          = _experiment_conditions_.exposure_time;          // year;
@@ -684,8 +650,8 @@ namespace analysis {
             const double value = a_histogram.get(i) * norm_factor;
             if (vbkg_counts.empty()) vbkg_counts.assign(a_histogram.bins(), 0.0);
             vbkg_counts.at(i) += value;
-            if(i==139) // 2.8 MeV bin
-              std::cout<<std::endl<<"bkg count  "<<a_name<< "  " <<value<<std::endl<<std::endl;
+            // if(i==139) // 2.8 MeV bin
+            //   std::cout<<std::endl<<"bkg count  "<<a_name<< "  " <<value<<std::endl<<std::endl;
           }
 
         const bool rescale = true;
