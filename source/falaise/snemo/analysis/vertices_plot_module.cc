@@ -1,7 +1,7 @@
 // vertices_plot_module.cc
 
 // Ourselves:
-#include </home/calvez/nemo/work_dir/Falaise/trunk/modules/PlotModule/source/falaise/snemo/analysis/vertices_plot_module.h>
+#include <snemo/analysis/vertices_plot_module.h>
 
 // Standard library:
 #include <stdexcept>
@@ -162,8 +162,20 @@ namespace analysis {
     DT_THROW_IF(! is_initialized(), std::logic_error,
                 "Module '" << get_name() << "' is not initialized !");
 
+    // Check if the 'particle track' record bank is available :
+    const std::string ptd_label = snemo::datamodel::data_info::default_particle_track_data_label();
+    if (! data_record_.has(ptd_label))
+      {
+        DT_LOG_ERROR(get_logging_priority (), "Could not find any bank with label '"
+                     << ptd_label << "' !");
+        return dpp::base_module::PROCESS_STOP;
+      }
+    const snemo::datamodel::particle_track_data & ptd
+      = data_record_.get<snemo::datamodel::particle_track_data>(ptd_label);
+
     // Check if some 'topology_data' are available in the data model:
-    const std::string td_label = snemo::datamodel::data_info::default_topology_data_label();
+    // const std::string td_label = snemo::datamodel::data_info::default_topology_data_label();
+    const std::string td_label = "TD";
     if (! data_record_.has(td_label)) {
       DT_LOG_ERROR(get_logging_priority(), "Missing topology data to be processed !");
       return dpp::base_module::PROCESS_ERROR;
@@ -189,86 +201,216 @@ namespace analysis {
       return dpp::base_module::PROCESS_ERROR;
     }
 
-    std::ostringstream key;
-    key << "vertices_probability";
+    // std::ostringstream key;
+    // key << "vertices_probability";
+
+
+    const snemo::datamodel::particle_track_data::particle_collection_type & the_particles = ptd.get_particles();
+
+    // if(the_particles.size() != 1) {
+    //   DT_LOG_WARNING(get_logging_priority(), "More than one particle !");
+    //   return dpp::base_module::PROCESS_ERROR;
+    // }
 
     // Getting histogram pool
     mygsl::histogram_pool & a_pool = grab_histogram_pool();
 
+    std::ostringstream key;
+    key << "vertex_distrib";
+
     if (! a_pool.has(key.str()))
       {
-        mygsl::histogram_1d & h = a_pool.add_1d(key.str(), "", "vertices");
+        mygsl::histogram_2d & h = a_pool.add_2d(key.str(), "", "vertices");
         datatools::properties hconfig;
         hconfig.store_string("mode", "mimic");
-        hconfig.store_string("mimic.histogram_1d", "tof_probability_template");
-        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+        hconfig.store_string("mimic.histogram_2d", "vertex_distribution_template");
+        mygsl::histogram_pool::init_histo_2d(h, hconfig, &a_pool);
       }
+    mygsl::histogram_2d & a_histo = a_pool.grab_2d(key.str ());
+    // geomtools::blur_spot tmp = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertex();
+    double vertex_y = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertex().get_position().y();
+    double vertex_z = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertex().get_position().z();
 
-    // Getting the current histogram
-    mygsl::histogram_1d & a_histo = a_pool.grab_1d(key.str ());
-    // a_histo.fill(a_pattern.get_measurement("vertex_e1_e2").get_probability());
-    // std:: cout << "vertices plot " << dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_probability() << std::endl;
-    double vertices_proba = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_probability();
-    if(datatools::is_valid(vertices_proba))
-       a_histo.fill(vertices_proba);
-    if(vertices_proba<0.01)
-      std::cout << "-------------------------------------" << std::endl;
+    if(datatools::is_valid(vertex_y) && datatools::is_valid(vertex_z))
+      a_histo.fill(vertex_y,vertex_z);
 
-    std::ostringstream key_delta_x;
-    key_delta_x << "vertices_distance_x";
+    DT_LOG_TRACE(get_logging_priority(), "Exiting.");
+    return dpp::base_module::PROCESS_SUCCESS;
 
-    if (! a_pool.has(key_delta_x.str()))
+    /*
+    std::ostringstream key_tot;
+    key_tot << "track_length_distrib";
+
+    if (! a_pool.has(key_tot.str()))
       {
-        mygsl::histogram_1d & h = a_pool.add_1d(key_delta_x.str(), "", "vertices");
+        mygsl::histogram_1d & h = a_pool.add_1d(key_tot.str(), "", "track_length_distrib");
         datatools::properties hconfig;
         hconfig.store_string("mode", "mimic");
-        hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+        hconfig.store_string("mimic.histogram_1d","track_length_efficiency_template");
         mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
       }
 
     // Getting the current histogram
-    mygsl::histogram_1d & a_histo_delta_x = a_pool.grab_1d(key_delta_x.str ());
-    double delta_vertices_x = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_x();
-    if(datatools::is_valid(delta_vertices_x))
-       a_histo_delta_x.fill(delta_vertices_x);
+    mygsl::histogram_1d & a_histo_distrib = a_pool.grab_1d(key_tot.str());
 
-    std::ostringstream key_delta_y;
-    key_delta_y << "vertices_distance_y";
+    const snemo::datamodel::base_trajectory_pattern & a_track_pattern = the_particles.front().get().get_trajectory().get_pattern();
+    double track_length = a_track_pattern.get_shape().get_length();
 
-    if (! a_pool.has(key_delta_y.str()))
+    if(datatools::is_valid(track_length))
+      a_histo_distrib.fill(track_length);
+
+    // if (a_pattern_id != "1e") {
+    //   DT_LOG_WARNING(get_logging_priority(), "PlotModule only works for '1e' topology for now !");
+    //   return dpp::base_module::PROCESS_SUCCESS;
+    //   // return dpp::base_module::PROCESS_ERROR;
+    // }
+
+    std::ostringstream key_efficiency;
+    key_efficiency << "track_length_efficiency";
+
+    if (! a_pool.has(key_efficiency.str()))
       {
-        mygsl::histogram_1d & h = a_pool.add_1d(key_delta_y.str(), "", "vertices");
+        mygsl::histogram_1d & h = a_pool.add_1d(key_efficiency.str(), "", "track_length_efficiency");
         datatools::properties hconfig;
         hconfig.store_string("mode", "mimic");
-        hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+        hconfig.store_string("mimic.histogram_1d","track_length_efficiency_template");
         mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
       }
 
     // Getting the current histogram
-    mygsl::histogram_1d & a_histo_delta_y = a_pool.grab_1d(key_delta_y.str ());
-    double delta_vertices_y = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_y();
-    if(datatools::is_valid(delta_vertices_y))
-       a_histo_delta_y.fill(delta_vertices_y);
+    mygsl::histogram_1d & a_histo_efficiency = a_pool.grab_1d(key_efficiency.str ());
 
-    std::ostringstream key_delta_z;
-    key_delta_z << "vertices_distance_z";
+    if(datatools::is_valid(track_length))
+      a_histo_efficiency.fill(track_length);
+*/
 
-    if (! a_pool.has(key_delta_z.str()))
+    // if (! a_pool.has(key.str()))
+    //   {
+    //     mygsl::histogram_1d & h = a_pool.add_1d(key.str(), "", "vertices");
+    //     datatools::properties hconfig;
+    //     hconfig.store_string("mode", "mimic");
+    //     hconfig.store_string("mimic.histogram_1d", "tof_probability_template");
+    //     mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+    //   }
+
+    // // Getting the current histogram
+    // mygsl::histogram_1d & a_histo = a_pool.grab_1d(key.str ());
+    // // a_histo.fill(a_pattern.get_measurement("vertex_e1_e2").get_probability());
+    // // std:: cout << "vertices plot " << dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_probability() << std::endl;
+    // double vertices_proba = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_probability();
+    // if(datatools::is_valid(vertices_proba))
+    //    a_histo.fill(vertices_proba);
+
+    // std::ostringstream key_delta_x;
+    // key_delta_x << "vertices_distance_x";
+
+    // if (! a_pool.has(key_delta_x.str()))
+    //   {
+    //     mygsl::histogram_1d & h = a_pool.add_1d(key_delta_x.str(), "", "vertices");
+    //     datatools::properties hconfig;
+    //     hconfig.store_string("mode", "mimic");
+    //     hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+    //     mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+    //   }
+
+    // // Getting the current histogram
+    // mygsl::histogram_1d & a_histo_delta_x = a_pool.grab_1d(key_delta_x.str ());
+    // double delta_vertices_x = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_x();
+    // if(datatools::is_valid(delta_vertices_x))
+    //    a_histo_delta_x.fill(delta_vertices_x);
+
+    // std::ostringstream key_delta_y;
+    // key_delta_y << "vertices_distance_y";
+
+    // if (! a_pool.has(key_delta_y.str()))
+    //   {
+    //     mygsl::histogram_1d & h = a_pool.add_1d(key_delta_y.str(), "", "vertices");
+    //     datatools::properties hconfig;
+    //     hconfig.store_string("mode", "mimic");
+    //     hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+    //     mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+    //   }
+
+    // // Getting the current histogram
+    // mygsl::histogram_1d & a_histo_delta_y = a_pool.grab_1d(key_delta_y.str ());
+    // double delta_vertices_y = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_y();
+    // if(datatools::is_valid(delta_vertices_y))
+    //    a_histo_delta_y.fill(delta_vertices_y);
+
+    // std::ostringstream key_delta_z;
+    // key_delta_z << "vertices_distance_z";
+
+    // if (! a_pool.has(key_delta_z.str()))
+    //   {
+    //     mygsl::histogram_1d & h = a_pool.add_1d(key_delta_z.str(), "", "vertices");
+    //     datatools::properties hconfig;
+    //     hconfig.store_string("mode", "mimic");
+    //     hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
+    //     mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+    //   }
+
+    // // Getting the current histogram
+    // mygsl::histogram_1d & a_histo_delta_z = a_pool.grab_1d(key_delta_z.str ());
+    // double delta_vertices_z = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_z();
+    // if(datatools::is_valid(delta_vertices_z))
+    //    a_histo_delta_z.fill(delta_vertices_z);
+
+    /*
+    //==========
+    std::ostringstream key_vertex;
+    key_vertex << "vertex_position";
+
+    double min_track_length = 1000000000;
+
+    for (snemo::datamodel::particle_track_data::particle_collection_type::const_iterator
+           iparticle = ptd.get_particles().begin();
+         iparticle != ptd.get_particles().end();
+         ++iparticle)
       {
-        mygsl::histogram_1d & h = a_pool.add_1d(key_delta_z.str(), "", "vertices");
+        const snemo::datamodel::particle_track & a_particle = iparticle->get();
+
+        if (a_particle.has_trajectory()) {
+          const snemo::datamodel::tracker_trajectory & a_trajectory = a_particle.get_trajectory();
+          const snemo::datamodel::base_trajectory_pattern & a_track_pattern = a_trajectory.get_pattern();
+          if(a_track_pattern.get_shape().get_length() < min_track_length)
+          min_track_length = a_track_pattern.get_shape().get_length();
+        } else {
+          DT_LOG_WARNING(get_logging_priority(), "Particle has no attached trajectory !");
+        }
+      }
+    // std::cout << "particle track length " << min_track_length << std::endl;
+    if(min_track_length < 400)
+      key_vertex << "_short";
+    else if(min_track_length < 600)
+      key_vertex << "_medium";
+    else
+      key_vertex << "_long";
+
+    if (! a_pool.has(key_vertex.str()))
+      {
+        mygsl::histogram_2d & h = a_pool.add_2d(key_vertex.str(), "", "vertices");
         datatools::properties hconfig;
         hconfig.store_string("mode", "mimic");
-        hconfig.store_string("mimic.histogram_1d", "delta_vertices_Y_template");
-        mygsl::histogram_pool::init_histo_1d(h, hconfig, &a_pool);
+        hconfig.store_string("mimic.histogram_2d", "vertex_distribution_template");
+        mygsl::histogram_pool::init_histo_2d(h, hconfig, &a_pool);
       }
 
+    // // Getting the current histogram
+    // mygsl::histogram_2d & a_histo = a_pool.grab_2d(key_vertex.str ());
+    // double vertex_y = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertex().get_position().y();
+    // double vertex_z = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertex().get_position().z();
+    // if(datatools::is_valid(vertex_y) && datatools::is_valid(vertex_z))
+    //   a_histo.fill(vertex_y,vertex_z);
+
     // Getting the current histogram
-    mygsl::histogram_1d & a_histo_delta_z = a_pool.grab_1d(key_delta_z.str ());
-    double delta_vertices_z = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1_e2")).get_vertices_distance_z();
-    if(datatools::is_valid(delta_vertices_z))
-       a_histo_delta_z.fill(delta_vertices_z);
-
-
+    mygsl::histogram_2d & a_histo = a_pool.grab_2d(key_vertex.str ());
+    double vertex_y = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1")).get_vertex().get_position().y();
+    double vertex_z = dynamic_cast<const snemo::datamodel::vertex_measurement&> (a_pattern.get_measurement("vertex_e1")).get_vertex().get_position().z();
+    if(datatools::is_valid(vertex_y) && datatools::is_valid(vertex_z))
+      a_histo.fill(vertex_y,vertex_z);
+    std::cout << "vertex " << vertex_y << "  " << vertex_z << std::endl;
+    //=======
+*/
     DT_LOG_TRACE(get_logging_priority(), "Exiting.");
     return dpp::base_module::PROCESS_SUCCESS;
   }
